@@ -12,9 +12,30 @@ type ExecutorFunc = (resolve: ResolveFunc, reject: RejectFunc) => void
 
 class Aff<T> {
   private state: PromiseState
+  private result?: T
+  private reason?: any
 
   constructor(executor: ExecutorFunc) {
     this.state = PromiseState.PENDING
+    this.initialSync(executor)
+  }
+
+  private initialSync(executor: ExecutorFunc) {
+    const resolveWrapper = (value: any) => {
+      this.state = PromiseState.FULFILLED
+      this.result = value
+    }
+
+    const rejectWrapper = (reason: any) => {
+      this.state = PromiseState.REJECTED
+      this.reason = reason
+    }
+
+    try {
+      executor(resolveWrapper, rejectWrapper)
+    } catch (e) {
+      rejectWrapper(e)
+    }
   }
 
   then<T1, T2>(
