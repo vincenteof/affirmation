@@ -53,13 +53,9 @@ class QueueItem {
   }
 }
 
-function nextRun(fn: () => void) {
-  setTimeout(fn, 0)
-}
-
 class P<T> {
   private state: PromiseState
-  private result?: T
+  private result?: T | null
   private reason?: any
   private queue: QueueItem[]
 
@@ -67,6 +63,19 @@ class P<T> {
     this.state = PromiseState.PENDING
     this.queue = []
     this.execute(executor)
+  }
+
+  private execute(
+    executor: (resolve: ResolveFunc<T>, reject: RejectFunc) => void
+  ) {
+    // use createWrapper method to deal with mutiple times calling
+    const resolveWrapper = P.createResolveWrapper(this)
+    const rejectWrapper = P.createRejectWrapper(this)
+    try {
+      executor(resolveWrapper, rejectWrapper)
+    } catch (e) {
+      rejectWrapper(e)
+    }
   }
 
   public then(
@@ -114,25 +123,8 @@ class P<T> {
     // todo
   }
 
-  private execute(
-    executor: (resolve: ResolveFunc<T>, reject: RejectFunc) => void
-  ) {
-    // todo: deal with mutiple times calling
-    const resolveWrapper = (value?: T) => {
-      P.resolve(this, value)
-    }
-    const rejectWrapper = (reason: any) => {
-      P.reject(this, reason)
-    }
-    try {
-      executor(resolveWrapper, rejectWrapper)
-    } catch (e) {
-      rejectWrapper(e)
-    }
-  }
-
   private static resolve<T>(
-    self: P<any>,
+    self: P<T>,
     x: T | P<T> | Thenable<T> | undefined | null
   ): void {
     if (x instanceof P) {
@@ -151,22 +143,16 @@ class P<T> {
       return
     }
     if (isThenable(x)) {
-      // todo: deal with mutiple times calling
-      // todo: make some abstraction for it
-      const resolveWrapper = (value?: T) => {
-        this.resolve(self, value)
-      }
-      const rejectWrapper = (reason: any) => {
-        this.reject(self, reason)
-      }
+      const resolveWrapper = P.createResolveWrapper(self)
+      const rejectWrapper = P.createRejectWrapper(self)
       try {
         x.then(resolveWrapper, rejectWrapper)
       } catch (e) {
         rejectWrapper(e)
       }
       // it seems we don't need to notify because we delegate self to another resolve process
+      return
     }
-
     // resolve simple values and also make notifications to underlying promises
     self.state = PromiseState.FULFILLED
     self.result = x
@@ -198,6 +184,30 @@ class P<T> {
       }
     }
   }
+
+  static createResolveWrapper<T>(self: P<T>) {
+    let called = false
+    return (value?: T) => {
+      if (!called) {
+        P.resolve(self, value)
+        called = true
+      }
+    }
+  }
+
+  static createRejectWrapper(self: P<any>) {
+    let called = false
+    return (reason: any) => {
+      if (!called) {
+        P.reject(self, reason)
+        called = true
+      }
+    }
+  }
+}
+
+function nextRun(fn: () => void) {
+  setTimeout(fn, 0)
 }
 
 export { P, Thenable }

@@ -1,22 +1,24 @@
 import { P, Thenable } from '../src/p'
 
 describe('promise creation and resolution test', () => {
-  it('creates a new promise and simply resolves', () => {
+  it('creates a new promise and simply resolves', done => {
     new P(resolve => {
       resolve('simple')
     }).then(value => {
-      expect(value).toBe('simple')
+      expect(value).toEqual('simple')
+      done()
     })
   })
 
-  it('creates a new promise and resolves another promise', () => {
+  it('creates a new promise and resolves another promise', done => {
     new P(resolve => {
       const q = new P(resolveInner => {
         resolveInner('inner simple')
       })
       resolve(q)
     }).then(value => {
-      expect(value).toBe('inner simple')
+      expect(value).toEqual('inner simple')
+      done()
     })
   })
 
@@ -29,7 +31,17 @@ describe('promise creation and resolution test', () => {
       }
       resolve(thenable)
     }).then(value => {
-      expect(value).toBe('thenable simple')
+      expect(value).toEqual('thenable simple')
+    })
+  })
+
+  it('resolves most one time', done => {
+    new P(resolve => {
+      resolve(1)
+      resolve(2)
+    }).then(value => {
+      expect(value).toEqual(1)
+      done()
     })
   })
 })
