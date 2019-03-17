@@ -49,7 +49,7 @@ class QueueItem {
   }
 
   handleRejected(parent: P<any>) {
-    // todo
+    parent.thenCore(this.promise, undefined, this.rejectedHandler)
   }
 }
 
@@ -67,7 +67,7 @@ class P<T> {
 
   private execute(
     executor: (resolve: ResolveFunc<T>, reject: RejectFunc) => void
-  ) {
+  ): void {
     // use createWrapper method to deal with mutiple times calling
     const resolveWrapper = P.createResolveWrapper(this)
     const rejectWrapper = P.createRejectWrapper(this)
@@ -81,7 +81,7 @@ class P<T> {
   public then(
     fulfilledHandler?: FulfilledHandler<any, any>,
     rejectedHandler?: RejectedHandler<any>
-  ) {
+  ): P<any> {
     const resultPromise = new P(EMPTY_EXECUTOR)
     this.thenCore(resultPromise, fulfilledHandler, rejectedHandler)
     return resultPromise
@@ -91,8 +91,9 @@ class P<T> {
     underlying: P<any>,
     fulfilledHandler?: FulfilledHandler<any, any>,
     rejectedHandler?: RejectedHandler<any>
-  ) {
+  ): void {
     if (this.state === PromiseState.PENDING) {
+      // todo: push to queue
       return
     }
 
@@ -115,12 +116,8 @@ class P<T> {
     })
   }
 
-  public catch(rejectedHandler?: RejectedHandler<any>) {
-    // todo
-  }
-
-  catchCore(underlying: P<any>, rejectedHandler?: RejectedHandler<any>) {
-    // todo
+  public catch(rejectedHandler?: RejectedHandler<any>): P<any> {
+    return this.then(undefined, rejectedHandler)
   }
 
   private static resolve<T>(
@@ -159,11 +156,10 @@ class P<T> {
     P.notifyUnderlying(self)
   }
 
-  private static reject<T>(
-    self: P<any>,
-    x: T | P<T> | Thenable<T> | undefined | null
-  ): void {
-    // todo
+  private static reject<T>(self: P<any>, x: any): void {
+    self.state = PromiseState.REJECTED
+    self.reason = x
+    P.notifyUnderlying(self)
   }
 
   static copyFinishedPromise(p1: P<any>, p2: P<any>): void {
