@@ -12,11 +12,9 @@ type RejectFunc = (reason: any) => void
 
 type FulfilledHandler<T1, T2> = (
   value?: T1
-) => T2 | P<T2> | Thenable<T2> | undefined | null
+) => T2 | P<T2> | Thenable<T2> | undefined
 
-type RejectedHandler<T> = (
-  reason?: any
-) => T | P<T> | Thenable<T> | undefined | null
+type RejectedHandler<T> = (reason?: any) => T | P<T> | Thenable<T> | undefined
 
 interface Thenable<T> {
   then(resolve: ResolveFunc<T>, reject: RejectFunc): void
@@ -55,7 +53,7 @@ class QueueItem {
 
 class P<T> {
   private state: PromiseState
-  private result?: T | null
+  private result?: T
   private reason?: any
   private queue: QueueItem[]
 
@@ -78,26 +76,36 @@ class P<T> {
     }
   }
 
-  public then(
-    fulfilledHandler?: FulfilledHandler<any, any>,
-    rejectedHandler?: RejectedHandler<any>
-  ): P<any> {
-    const resultPromise = new P(EMPTY_EXECUTOR)
+  public then<T1, T2>(
+    fulfilledHandler?: FulfilledHandler<T, T1>,
+    rejectedHandler?: RejectedHandler<T2>
+  ): P<T1 | T2> {
+    const resultPromise = new P<any>(EMPTY_EXECUTOR)
+    // const p2 = new P((resolve, reject) => { resolve(1) })
     this.thenCore(resultPromise, fulfilledHandler, rejectedHandler)
     return resultPromise
   }
 
-  thenCore(
-    underlying: P<any>,
-    fulfilledHandler?: FulfilledHandler<any, any>,
-    rejectedHandler?: RejectedHandler<any>
+  thenCore<T1, T2>(
+    underlying: P<T1 | T2>,
+    fulfilledHandler?: FulfilledHandler<T, T1>,
+    rejectedHandler?: RejectedHandler<T2>
   ): void {
     if (this.state === PromiseState.PENDING) {
-      // todo: push to queue
+      // push to queue
+      const queueItem = new QueueItem(
+        underlying,
+        fulfilledHandler,
+        rejectedHandler
+      )
+      this.queue.push(queueItem)
       return
     }
 
-    let handler = fulfilledHandler
+    let handler:
+      | FulfilledHandler<T, T1>
+      | RejectedHandler<T2>
+      | undefined = fulfilledHandler
     let value = this.result
     if (this.state === PromiseState.REJECTED) {
       handler = rejectedHandler
@@ -116,13 +124,13 @@ class P<T> {
     })
   }
 
-  public catch(rejectedHandler?: RejectedHandler<any>): P<any> {
-    return this.then(undefined, rejectedHandler)
+  public catch<T1>(rejectedHandler?: RejectedHandler<T1>): P<T1> {
+    return this.then(undefined, rejectedHandler) as P<T1>
   }
 
   private static resolve<T>(
     self: P<T>,
-    x: T | P<T> | Thenable<T> | undefined | null
+    x: T | P<T> | Thenable<T> | undefined
   ): void {
     if (x instanceof P) {
       if (x.state === PromiseState.PENDING) {
@@ -156,7 +164,7 @@ class P<T> {
     P.notifyUnderlying(self)
   }
 
-  private static reject<T>(self: P<any>, x: any): void {
+  private static reject(self: P<any>, x: any): void {
     self.state = PromiseState.REJECTED
     self.reason = x
     P.notifyUnderlying(self)

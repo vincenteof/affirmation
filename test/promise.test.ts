@@ -45,7 +45,6 @@ describe('promise creation and resolution test', () => {
     })
   })
 
-  // todo: should be fixed
   it('resolves in async function', done => {
     new P(resolve => {
       setTimeout(() => {
@@ -68,28 +67,28 @@ describe('promise creation and rejection test', () => {
     })
   })
 
-  it('creates a new promise and rejects mutiple times', done => {
+  it('creates a new promise and rejects multiple times', done => {
     const p = new P((resolve, reject) => {
-      reject('mutiple')
+      reject('multiple')
     })
     p.catch(value => {
-      expect(value).toEqual('mutiple')
+      expect(value).toEqual('multiple')
       done()
     })
     p.catch(value => {
-      expect(value).toEqual('mutiple')
+      expect(value).toEqual('multiple')
       done()
     })
   })
 
-  // should be fixed
+  // todo: should be fixed
   it('returns a fulfilled promise after being catched', done => {
     const p = new P((resolve, reject) => {
-      reject('mutiple')
+      reject('rejected')
     })
       .catch(value => {
-        expect(value).toEqual('mutiple')
-        done()
+        expect(value).toEqual('rejected')
+        // done()
         return 'resolved?'
       })
       .then(value => {
